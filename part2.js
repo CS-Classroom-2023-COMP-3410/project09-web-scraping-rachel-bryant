@@ -1,53 +1,50 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
-const fs = require("fs");
+const axios = require('axios');
+const cheerio = require('cheerio');
+const fs = require('fs');
 
-async function scrapeEvents() {
-    try {
-        const url = "https://denverpioneers.com"; // homepage
+let results = [];
 
-        const response = await axios.get(url);
-        const html = response.data;
-        const $ = cheerio.load(html);
+axios.get('https://denverpioneers.com') // homepage
+  .then(response => {
+    const $ = cheerio.load(response.data);
 
-        let scriptText = "";
+    let scriptText = '';
 
-        // Find the script containing "type":"events"
-        $("script").each((i, el) => {
-            const text = $(el).html();
-            if (text && text.includes('"type":"events"')) {
-                scriptText = text;
-            }
-        });
+    // Find the script containing "type":"events"
+    $('script').each((i, el) => {
+      const text = $(el).html();
+      if (text && text.includes('"type":"events"')) {
+        scriptText = text;
+      }
+    });
 
-        if (!scriptText) {
-            console.log("Events object not found.");
-            return;
-        }
-
-        // Extract the JS object
-        const match = scriptText.match(/var\s+obj\s*=\s*({[\s\S]*?});/);
-
-        if (!match) {
-            console.log("Could not extract object.");
-            return;
-        }
-
-        const obj = JSON.parse(match[1]);
-
-        const events = obj.data.map(item => ({
-            duTeam: item.sport?.title || "Denver",
-            opponent: item.opponent?.title || "TBD",
-            date: item.date
-        }));
-
-        fs.writeFileSync("results/athletic_events.json", JSON.stringify({ events }, null, 2));
-
-        console.log("Saved to athletic_events.json");
-
-    } catch (err) {
-        console.error("Error:", err.message);
+    if (!scriptText) {
+      console.log('Events object not found.');
+      return;
     }
-}
 
-scrapeEvents();
+    // Extract the JS object
+    const match = scriptText.match(/var\s+obj\s*=\s*({[\s\S]*?});/);
+
+    if (!match) {
+      console.log('Could not extract object.');
+      return;
+    }
+
+    const obj = JSON.parse(match[1]);
+
+    obj.data.forEach(item => {
+      results.push({
+        duTeam: item.sport?.title || 'Denver',
+        opponent: item.opponent?.title || 'TBD',
+        date: item.date
+      });
+    });
+
+    fs.writeFileSync('results/athletic_events.json', JSON.stringify({ events: results }, null, 2));
+    console.log('Saved to athletic_events.json');
+
+  })
+  .catch(error => {
+    console.error('Error fetching and parsing the page:', error.message);
+  });
